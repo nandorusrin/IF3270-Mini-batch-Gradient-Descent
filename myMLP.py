@@ -13,7 +13,8 @@ class Layers(object):
     
     self.net = [[] for i in range(len(hidden_neurons) + 1)]
     self.activation = [[] for i in range(len(hidden_neurons) + 1)]
-    self.delta = [[] for i in range(len(hidden_neurons) + 1)]
+    self.delta_error = [[] for i in range(len(hidden_neurons) + 1)]
+    self.delta_weight = [[] for i in range(len(hidden_neurons) + 1)]
     self.num_layers = len(hidden_neurons) + 2
 
     self.neurons_num = [input_neuron] + [hidden_neurons[i] for i in range(len(hidden_neurons))] + [output_neuron]
@@ -23,7 +24,10 @@ class Layers(object):
         self.biasses[i] = [0 for j in range(hidden_neurons[i])]
         self.net[i] = [0 for j in range(hidden_neurons[i])]
         self.activation[i] = [0 for j in range(hidden_neurons[i])]
-        self.delta[i] = [0 for j in range(hidden_neurons[i])]
+        self.delta_error[i] = [0 for j in range(hidden_neurons[i])]
+        self.delta_weight[i] = [
+          [0 for k in range(input_neuron)] for j in range(hidden_neurons[i])
+        ]
         self.weights[i] = [
           [0 for k in range(input_neuron)] for j in range(hidden_neurons[i])
         ]
@@ -31,7 +35,10 @@ class Layers(object):
         self.biasses[i] = [0 for j in range(output_neuron)]
         self.net[i] = [0 for j in range(output_neuron)]
         self.activation[i] = [0 for j in range(output_neuron)]
-        self.delta[i] = [0 for j in range(output_neuron)]
+        self.delta_error[i] = [0 for j in range(output_neuron)]
+        self.delta_weight[i] = [
+          [0 for k in range(hidden_neurons[i-1])] for j in range(output_neuron)
+        ]
         self.weights[i] = [
           [0 for k in range(hidden_neurons[i-1])] for j in range(output_neuron)
         ]
@@ -39,7 +46,10 @@ class Layers(object):
         self.biasses[i] = [0 for j in range(hidden_neurons[i])]
         self.net[i] = [0 for j in range(hidden_neurons[i])]
         self.activation[i] = [0 for j in range(hidden_neurons[i])]
-        self.delta[i] = [0 for j in range(hidden_neurons[i])]
+        self.delta_error[i] = [0 for j in range(hidden_neurons[i])]
+        self.delta_weight[i] = [
+          [0 for k in range(hidden_neurons[i-1])] for j in range(hidden_neurons[i])
+        ]
         self.weights[i] = [
           [0 for k in range(hidden_neurons[i-1])] for j in range(hidden_neurons[i])
         ]
@@ -72,13 +82,32 @@ class Layers(object):
       for node in range(len(self.weights[layer])):
         if layer == self.num_layers-2:  # output unit
           # print(target, out_val);
-          self.delta[layer][node] = self.activation[layer][node]*(1-self.activation[layer][node])*(target[node]-out_val[node])
+          self.delta_error[layer][node] = self.activation[layer][node]*(1-self.activation[layer][node])*(target[node]-out_val[node])
         else: # hidden unit
           # print("error", layer, node);
-          self.delta[layer][node] = self.activation[layer][node]*(1-self.activation[layer][node])*sum(
-            [(self.delta[layer+1][m])*self.weights[layer+1][m][node] for m in range(len(self.weights[layer+1]))]
+          self.delta_error[layer][node] = self.activation[layer][node]*(1-self.activation[layer][node])*sum(
+            [(self.delta_error[layer+1][m])*self.weights[layer+1][m][node] for m in range(len(self.weights[layer+1]))]
           )
-    print("delta", self.delta)
+    print("delta_error", self.delta_error)
+
+  def update_delta_weight(self):
+    for layer in reversed(range(self.num_layers-1)):
+      for node in range(len(self.weights[layer])):
+        for k in range(len(self.weights[layer][node])):
+          self.delta_weight[layer][node][k] += self.lrate*self.delta_error[layer][node]*self.activation[layer][k]
+
+  def update_weight(self):
+    for layer in reversed(range(self.num_layers-1)):
+      for node in range(len(self.weights[layer])):
+        for k in range(len(self.weights[layer][node])):
+          self.weights[layer][node][k] += self.delta_weight[layer][node][k]
+  
+  def clear_delta_weight(self):
+    for layer in reversed(range(self.num_layers-1)):
+      for node in range(len(self.weights[layer])):
+        for k in range(len(self.weights[layer][node])):
+          self.delta_weight[layer][node][k] = 0
+
 
 class myMLP(object):
   def __init__(self, hidden_layer_sizes=(10,), batch_size=200):
