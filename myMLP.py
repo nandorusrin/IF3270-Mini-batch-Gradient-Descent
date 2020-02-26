@@ -44,9 +44,9 @@ class Layers(object):
           [0 for k in range(hidden_neurons[i-1])] for j in range(hidden_neurons[i])
         ]
 
-    print('nn:', self.neurons_num)
-    print(self.weights)
-    print(self.biasses)
+    # print('nn:', self.neurons_num)
+    # print(self.weights)
+    # print(self.biasses)
     self.lrate = learning_rate
 
   # x: features, y: target
@@ -66,18 +66,19 @@ class Layers(object):
     out = self.activation[-1]
     return out
   
-  # TODO: backprop mechanism
-  def backprop(self, out_val, target):
+  # TODO: backward mechanism
+  def backward(self, out_val, target):
     for layer in reversed(range(self.num_layers-1)):
       for node in range(len(self.weights[layer])):
-        for k in range(len(self.weights[layer][node])):
-          if layer == self.num_layers-1:  # output unit
-            self.delta[layer][node] = self.activation[layer][node]*(1-self.activation[layer][node])*(target[node]-out_val[node])
-          else: # hidden unit
-            self.delta[layer][node] = self.activation[layer][node]*(1-self.activation[layer][node])*sum(
-              [(self.delta[layer+1][m])*self.weights[layer+1][m] for m in range(len(self.weights[layer+1]))]
-            )
-    print(self.delta)
+        if layer == self.num_layers-2:  # output unit
+          # print(target, out_val);
+          self.delta[layer][node] = self.activation[layer][node]*(1-self.activation[layer][node])*(target[node]-out_val[node])
+        else: # hidden unit
+          # print("error", layer, node);
+          self.delta[layer][node] = self.activation[layer][node]*(1-self.activation[layer][node])*sum(
+            [(self.delta[layer+1][m])*self.weights[layer+1][m][node] for m in range(len(self.weights[layer+1]))]
+          )
+    print("delta", self.delta)
 
 class myMLP(object):
   def __init__(self, hidden_layer_sizes=(10,), batch_size=200):
@@ -90,16 +91,17 @@ class myMLP(object):
       # feed forward
       out = self._mlp.feed_forward(X[i], y[i])
       total_err = sum([(0.5*((y[i] - out_val)**2)) for out_val in out])
-      print(total_err)
-      
+      # print(total_err)
+      target = [1 if klas == y[i] else 0 for klas in self._unique_class]
       # backward phase
-      self._mlp.backprop(out, y[i])
+      self._mlp.backward(out, target)
   
   def fit(self, X, y):
     self._feat_num = X.shape[1]
-    self._target_class_num = len(np.unique(y))
+    self._unique_class = np.unique(y)
+    self._target_class_num = len(self._unique_class)
     self._mlp = Layers(hidden_neurons=self._hidden_layer_sizes, input_neuron=self._feat_num, output_neuron=self._target_class_num)
-
+    
     self._train(X, y)
 
     return self
@@ -107,5 +109,6 @@ class myMLP(object):
 iris = datasets.load_iris()
 X = iris.data
 y = iris.target
+# print("iris target", y)
 mMLP = myMLP(hidden_layer_sizes=(2,))
 mMLP = mMLP.fit(X, y)
