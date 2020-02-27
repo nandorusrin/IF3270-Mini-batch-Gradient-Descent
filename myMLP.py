@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 from math import exp
 import pandas as pd
+import matplotlib.pyplot as plt
 
 class Layers(object):
 	def __init__(self, input_neuron=1, hidden_neurons=(10,), output_neuron=1, learning_rate=0.001):
@@ -113,7 +114,7 @@ class Layers(object):
 
 
 class myMLP(object):
-	def __init__(self, hidden_layer_sizes=(10, 10,), batch_size=10, err_threshold=0.01, max_iter=2000, learning_rate=1e-05):
+	def __init__(self, hidden_layer_sizes=(10, 10,), batch_size=100, err_threshold=0.01, max_iter=200, learning_rate=0.001):
 		super().__init__()
 		self._hidden_layer_sizes = hidden_layer_sizes
 		self._batch_size = batch_size
@@ -124,32 +125,44 @@ class myMLP(object):
 	def _train(self, X, y):
 		self._mlp.clear_delta_weight()
 		total_err = 0.0
-		
+		error_hist = []
+		done = False
 		len_X = len(X)
-		i = counter = iter_counter = 0
-		for index, row in X.iterrows():
-			print('[{}]'.format(i), 'instance:', row, 'target:', y[i])
-			# feed forward
-			out = self._mlp.feed_forward(row, y[i])
-			total_err += sum([(0.5*((y[i] - out_val)**2)) for out_val in out])
-			print('\ttotal_err:', total_err)
+		for iter_counter in range(self._max_iter):
+			i = counter = 0
+			for index, row in X.iterrows():
+				# print('[{}]'.format(i), 'instance:', row, 'target:', y[i])
+				# feed forward
+				out = self._mlp.feed_forward(row, y[i])
+				total_err += sum([(0.5*((y[i] - out_val)**2)) for out_val in out])
+				print('\ttotal_err:', total_err)
 
-			target = [1 if klas == y[i] else 0 for klas in self._unique_class]
-			self._mlp.backward(out, target)
-			self._mlp.update_delta_weight()
-			counter += 1
-			
-			if (counter == self._batch_size) or (i == len_X-1):
-				print('WEIGHT UPDATED')
-				self._mlp.update_weight()
-				self._mlp.clear_delta_weight()
-				iter_counter += 1
-				if (total_err < self._err_threshold) or (iter_counter == self._max_iter):
-					break
-				total_err = 0
-				counter = 0
-			i += 1
-	
+				target = [1 if klas == y[i] else 0 for klas in self._unique_class]
+				self._mlp.backward(out, target)
+				self._mlp.update_delta_weight()
+				counter += 1
+				
+				if (counter == self._batch_size) or (i == len_X-1):
+					error_hist.append(total_err)
+					print('WEIGHT UPDATED')
+					self._mlp.update_weight()
+					self._mlp.clear_delta_weight()
+					if (total_err < self._err_threshold and iter_counter > 0):
+						done = True
+						break
+					if (counter == self._batch_size and not (i == len_X-1)):
+						total_err = 0
+					counter = 0
+				i += 1
+			if done:
+				break
+
+		print('Last total err:', total_err)
+		total_err_df = pd.DataFrame(data=error_hist)
+		ax = total_err_df.plot(kind='line')
+
+		plt.show()
+
 	def fit(self, X, y):
 		self._feat_num = X.shape[1]
 		self._unique_class = np.unique(y)
@@ -176,8 +189,8 @@ df = pd.DataFrame(data = iris.data)
 df_class = pd.DataFrame(data = iris.target)
 
 # finally, split into train-test
-X_train, X_test, y_train, y_test = train_test_split(df, df_class, test_size = 0.3)
+X_train, X_test, y_train, y_test = train_test_split(df, df_class, test_size = 0.2)
 
 # print("iris target", y)
-mMLP = myMLP(hidden_layer_sizes=(3,3,), learning_rate=1e-5)
+mMLP = myMLP(hidden_layer_sizes=(5,3,), learning_rate=1e-5, max_iter=10, batch_size=5, err_threshold=2)
 mMLP = mMLP.fit(X_train, y_train)
