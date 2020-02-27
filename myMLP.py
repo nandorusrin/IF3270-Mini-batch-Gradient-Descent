@@ -6,191 +6,232 @@ from math import exp
 import pandas as pd
 import matplotlib.pyplot as plt
 
+
 class Layers(object):
-	def __init__(self, input_neuron=1, hidden_neurons=(10,), output_neuron=1, learning_rate=0.001):
-		super().__init__()
-		self.num_layers 	= len(hidden_neurons) + 2
-		self.neurons_num 	= [input_neuron] + [hidden_neurons[i] for i in range(len(hidden_neurons))] + [output_neuron]
-		# index pertama: layer ke-berapa, index kedua: neuron ke-berapa, index ketiga: hubungan neuron tersebut dengan neuron di layer sebelumnya
-		self.weights = [[] for i in range(len(hidden_neurons) + 1)]
+    def __init__(self, input_neuron=1, hidden_neurons=(10,), output_neuron=1, learning_rate=0.001):
+        super().__init__()
+        self.num_layers = len(hidden_neurons) + 2
+        self.neurons_num = [input_neuron] + [hidden_neurons[i]
+                                             for i in range(len(hidden_neurons))] + [output_neuron]
+        # index pertama: layer ke-berapa, index kedua: neuron ke-berapa, index ketiga: hubungan neuron tersebut dengan neuron di layer sebelumnya
+        self.weights = [[] for i in range(len(hidden_neurons) + 1)]
 
-		# index pertama: layer ke-berapa, index kedua: neuron ke-berapa
-		self.biasses = [[] for i in range(len(hidden_neurons) + 1)]
-		self.net 					= [[] for i in range(len(hidden_neurons) + 1)]
-		self.activation 	= [[] for i in range(len(hidden_neurons) + 1)]
+        # index pertama: layer ke-berapa, index kedua: neuron ke-berapa
+        self.biasses = [[] for i in range(len(hidden_neurons) + 1)]
+        self.net = [[] for i in range(len(hidden_neurons) + 1)]
+        self.activation = [[] for i in range(len(hidden_neurons) + 1)]
 
-		self.delta_error 	= [[] for i in range(len(hidden_neurons) + 1)]
-		self.delta_weight = [[] for i in range(len(hidden_neurons) + 1)]
+        self.delta_error = [[] for i in range(len(hidden_neurons) + 1)]
+        self.delta_weight = [[] for i in range(len(hidden_neurons) + 1)]
 
-		for i in range(len(hidden_neurons) + 1):
-			# input to hidden layer
-			if i == 0:
+        for i in range(len(hidden_neurons) + 1):
+            # input to hidden layer
+            if i == 0:
 
-				self.biasses[i] 		= [0 for j in range(hidden_neurons[i])]
-				self.net[i] 				= [0 for j in range(hidden_neurons[i])]
-				self.activation[i] 	= [0 for j in range(hidden_neurons[i])]
+                self.biasses[i] = [0 for j in range(hidden_neurons[i])]
+                self.net[i] = [0 for j in range(hidden_neurons[i])]
+                self.activation[i] = [0 for j in range(hidden_neurons[i])]
 
-				self.delta_error[i] = [0 for j in range(hidden_neurons[i])]
-				self.delta_weight[i] = [[0 for k in range(input_neuron)] for j in range(hidden_neurons[i])]
+                self.delta_error[i] = [0 for j in range(hidden_neurons[i])]
+                self.delta_weight[i] = [
+                    [0 for k in range(input_neuron)] for j in range(hidden_neurons[i])]
 
-				self.weights[i] 		= [[0 for k in range(input_neuron)] for j in range(hidden_neurons[i])]
+                self.weights[i] = [
+                    [0 for k in range(input_neuron)] for j in range(hidden_neurons[i])]
 
-			# hidden to output layer
-			elif i == len(hidden_neurons):
+            # hidden to output layer
+            elif i == len(hidden_neurons):
 
-				self.biasses[i] 		= [0 for j in range(output_neuron)]
-				self.net[i] 				= [0 for j in range(output_neuron)]
-				self.activation[i] 	= [0 for j in range(output_neuron)]
+                self.biasses[i] = [0 for j in range(output_neuron)]
+                self.net[i] = [0 for j in range(output_neuron)]
+                self.activation[i] = [0 for j in range(output_neuron)]
 
-				self.delta_error[i] = [0 for j in range(output_neuron)]
-				self.delta_weight[i] = [[0 for k in range(hidden_neurons[i-1])] for j in range(output_neuron)]
+                self.delta_error[i] = [0 for j in range(output_neuron)]
+                self.delta_weight[i] = [
+                    [0 for k in range(hidden_neurons[i-1])] for j in range(output_neuron)]
 
-				self.weights[i] 		= [[0 for k in range(hidden_neurons[i-1])] for j in range(output_neuron)]
+                self.weights[i] = [
+                    [0 for k in range(hidden_neurons[i-1])] for j in range(output_neuron)]
 
-			# hidden -> hidden layer
-			else:
-				self.biasses[i] 		= [0 for j in range(hidden_neurons[i])]
-				self.net[i] 				= [0 for j in range(hidden_neurons[i])]
-				self.activation[i] 	= [0 for j in range(hidden_neurons[i])]
-				self.delta_error[i] = [0 for j in range(hidden_neurons[i])]
-				self.delta_weight[i] = [[0 for k in range(hidden_neurons[i-1])] for j in range(hidden_neurons[i])]
-				self.weights[i] 		= [[0 for k in range(hidden_neurons[i-1])] for j in range(hidden_neurons[i])]
+            # hidden -> hidden layer
+            else:
+                self.biasses[i] = [0 for j in range(hidden_neurons[i])]
+                self.net[i] = [0 for j in range(hidden_neurons[i])]
+                self.activation[i] = [0 for j in range(hidden_neurons[i])]
+                self.delta_error[i] = [0 for j in range(hidden_neurons[i])]
+                self.delta_weight[i] = [
+                    [0 for k in range(hidden_neurons[i-1])] for j in range(hidden_neurons[i])]
+                self.weights[i] = [
+                    [0 for k in range(hidden_neurons[i-1])] for j in range(hidden_neurons[i])]
 
-		self.lrate = learning_rate
+        self.lrate = learning_rate
 
-	# x: features, y: target
-	def feed_forward(self, x, y):
-		# layer ke-n
-		for layer in range(self.num_layers - 1):
-			# iterasi node dalam satu LAYER
-			for node in range(self.neurons_num[layer + 1]):
-				# Inisialisasi value NET dengan bias
-				self.net[layer][node] = self.biasses[layer][node]
+    # x: features, y: target
+    def feed_forward(self, x, y):
+        # layer ke-n
+        for layer in range(self.num_layers - 1):
+            # iterasi node dalam satu LAYER
+            for node in range(self.neurons_num[layer + 1]):
+                # Inisialisasi value NET dengan bias
+                self.net[layer][node] = self.biasses[layer][node]
 
-				# Iterasi semua node sebelumnya untuk dapat value compute ke node sekarang
-				for k in range(self.neurons_num[layer]):
-					# layer == INPUT layer
-					if layer == 0:
-						# INPUT * bobot W(i)
-						self.net[layer][node] += x[k]*self.weights[layer][node][k]
-					else:
-						self.net[layer][node] += self.net[layer-1][k]*self.weights[layer][node][k]
-				
-				# Aktivasi NET ke OUT dengan sigma
-				self.activation[layer][node] = 1.0/(1 + exp(-1 * self.net[layer][node]))
-		out = self.activation[-1]
-		return out
-	
-	# Backward phase
-	def backward(self, out_val, target):
-		for layer in reversed(range(self.num_layers - 1)):
-			for node in range(len(self.weights[layer])):
-				if (layer == (self.num_layers - 2)):  # output unit
-					self.delta_error[layer][node] 	= self.activation[layer][node]*(1 - self.activation[layer][node])*(target[node] - out_val[node])
-				else: # hidden unit
-					self.delta_error[layer][node] 	= self.activation[layer][node]*(1 - self.activation[layer][node])*sum([(self.delta_error[layer + 1][m])*self.weights[layer + 1][m][node] for m in range(len(self.weights[layer + 1]))])
+                # Iterasi semua node sebelumnya untuk dapat value compute ke node sekarang
+                for k in range(self.neurons_num[layer]):
+                    # layer == INPUT layer
+                    if layer == 0:
+                        # INPUT * bobot W(i)
+                        self.net[layer][node] += x[k] * \
+                            self.weights[layer][node][k]
+                    else:
+                        self.net[layer][node] += self.net[layer -
+                                                          1][k]*self.weights[layer][node][k]
 
-	def update_delta_weight(self):
-		# Update BOBOT dimulai dari layer OUTPUT, baru ke depan
-		# Karena nilai yang digunakan node sekarang, merupakan ekstrak dari
-		# nilai node LAYER selanjutnya
+                # Aktivasi NET ke OUT dengan sigma
+                self.activation[layer][node] = 1.0 / \
+                    (1 + exp(-1 * self.net[layer][node]))
+        out = self.activation[-1]
+        return out
 
-		for layer in reversed(range(self.num_layers - 1)):
-			for node in range(len(self.weights[layer])):
-				for k in range(len(self.weights[layer][node])):
-					self.delta_weight[layer][node][k] += self.lrate * self.delta_error[layer][node]*self.activation[layer][node]
+    # Backward phase
+    def backward(self, out_val, target):
+        for layer in reversed(range(self.num_layers - 1)):
+            for node in range(len(self.weights[layer])):
+                if (layer == (self.num_layers - 2)):  # output unit
+                    self.delta_error[layer][node] = self.activation[layer][node] * \
+                        (1 - self.activation[layer][node]) * \
+                        (target[node] - out_val[node])
+                else:  # hidden unit
+                    self.delta_error[layer][node] = self.activation[layer][node]*(1 - self.activation[layer][node])*sum(
+                        [(self.delta_error[layer + 1][m])*self.weights[layer + 1][m][node] for m in range(len(self.weights[layer + 1]))])
 
-	def update_weight(self):
-		for layer in reversed(range(self.num_layers - 1)):
-			for node in range(len(self.weights[layer])):
-				for k in range(len(self.weights[layer][node])):
-					self.weights[layer][node][k] += self.delta_weight[layer][node][k]
-	
-	def clear_delta_weight(self):
-		for layer in reversed(range(self.num_layers - 1)):
-			for node in range(len(self.weights[layer])):
-				for k in range(len(self.weights[layer][node])):
-					self.delta_weight[layer][node][k] = 0
+    def update_delta_weight(self):
+        # Update BOBOT dimulai dari layer OUTPUT, baru ke depan
+        # Karena nilai yang digunakan node sekarang, merupakan ekstrak dari
+        # nilai node LAYER selanjutnya
+
+        for layer in reversed(range(self.num_layers - 1)):
+            for node in range(len(self.weights[layer])):
+                for k in range(len(self.weights[layer][node])):
+                    self.delta_weight[layer][node][k] += self.lrate * \
+                        self.delta_error[layer][node] * \
+                        self.activation[layer][node]
+
+    def update_weight(self):
+        for layer in reversed(range(self.num_layers - 1)):
+            for node in range(len(self.weights[layer])):
+                for k in range(len(self.weights[layer][node])):
+                    self.weights[layer][node][k] += self.delta_weight[layer][node][k]
+
+    def clear_delta_weight(self):
+        for layer in reversed(range(self.num_layers - 1)):
+            for node in range(len(self.weights[layer])):
+                for k in range(len(self.weights[layer][node])):
+                    self.delta_weight[layer][node][k] = 0
 
 
 class myMLP(object):
-	def __init__(self, hidden_layer_sizes=(10, 10,), batch_size=100, err_threshold=0.01, max_iter=200, learning_rate=0.001):
-		super().__init__()
-		self._hidden_layer_sizes = hidden_layer_sizes
-		self._batch_size = batch_size
-		self._err_threshold = err_threshold
-		self._max_iter = max_iter
-		self._lrate = learning_rate
-			
-	def _train(self, X, y):
-		self._mlp.clear_delta_weight()
-		total_err = 0.0
-		error_hist = []
-		done = False
-		len_X = len(X)
-		for iter_counter in range(self._max_iter):
-			i = counter = 0
-			for index, row in X.iterrows():
-				# print('[{}]'.format(i), 'instance:', row, 'target:', y[i])
-				# feed forward
-				out = self._mlp.feed_forward(row, y[i])
-				total_err += sum([(0.5*((y[i] - out_val)**2)) for out_val in out])
-				print('\ttotal_err:', total_err)
+    def __init__(self, hidden_layer_sizes=(10, 10,), batch_size=100, err_threshold=0.01, max_iter=200, learning_rate=0.001):
+        super().__init__()
+        self._hidden_layer_sizes = hidden_layer_sizes
+        self._batch_size = batch_size
+        self._err_threshold = err_threshold
+        self._max_iter = max_iter
+        self._lrate = learning_rate
 
-				target = [1 if klas == y[i] else 0 for klas in self._unique_class]
-				self._mlp.backward(out, target)
-				self._mlp.update_delta_weight()
-				counter += 1
-				
-				if (counter == self._batch_size) or (i == len_X-1):
-					error_hist.append(total_err)
-					print('WEIGHT UPDATED')
-					self._mlp.update_weight()
-					self._mlp.clear_delta_weight()
-					if (total_err < self._err_threshold and iter_counter > 0):
-						done = True
-						break
-					if (counter == self._batch_size and not (i == len_X-1)):
-						total_err = 0
-					counter = 0
-				i += 1
-			if done:
-				break
+    def _train(self, X, y):
+        self._mlp.clear_delta_weight()
+        total_err = 0.0
+        error_hist = []
+        done = False
+        len_X = len(X)
+        for iter_counter in range(self._max_iter):
+            i = counter = 0
+            for index, row in X.iterrows():
+                # print('[{}]'.format(i), 'instance:', row, 'target:', y[i])
+                # feed forward
+                out = self._mlp.feed_forward(row, y[i])
+                total_err += sum([(0.5*((y[i] - out_val)**2))
+                                  for out_val in out])
+                print('\ttotal_err:', total_err)
 
-		print('Last total err:', total_err)
-		total_err_df = pd.DataFrame(data=error_hist)
-		ax = total_err_df.plot(kind='line')
+                target = [1 if klas == y[i]
+                          else 0 for klas in self._unique_class]
+                self._mlp.backward(out, target)
+                self._mlp.update_delta_weight()
+                counter += 1
 
-		plt.show()
+                if (counter == self._batch_size) or (i == len_X-1):
+                    error_hist.append(total_err)
+                    print('WEIGHT UPDATED')
+                    self._mlp.update_weight()
+                    self._mlp.clear_delta_weight()
+                    if (total_err < self._err_threshold and iter_counter > 0):
+                        done = True
+                        break
+                    if (counter == self._batch_size and not (i == len_X-1)):
+                        total_err = 0
+                    counter = 0
+                i += 1
+            if done:
+                break
 
-	def fit(self, X, y):
-		self._feat_num = X.shape[1]
-		self._unique_class = np.unique(y)
-		self._target_class_num = len(self._unique_class)
-		self._mlp = Layers(hidden_neurons=self._hidden_layer_sizes, input_neuron=self._feat_num, output_neuron=self._target_class_num, learning_rate=self._lrate)
-		
-		try:
-			y = y[0].tolist()
-		except:
-			pass
-		self._train(X, y)
+        print('Last total err:', total_err)
+        total_err_df = pd.DataFrame(data=error_hist)
+        ax = total_err_df.plot(kind='line')
 
-		return self
+        plt.show()
+
+    def fit(self, X, y):
+        self._feat_num = X.shape[1]
+        self._unique_class = np.unique(y)
+        self._target_class_num = len(self._unique_class)
+        self._mlp = Layers(hidden_neurons=self._hidden_layer_sizes, input_neuron=self._feat_num,
+                           output_neuron=self._target_class_num, learning_rate=self._lrate)
+
+        try:
+            y = y[0].tolist()
+        except:
+            pass
+        self._train(X, y)
+
+        return self
+
+    def predict(self, x_test, _y):
+        predictValue = []
+        for i, x in X_test.iterrows():
+            value = self._mlp.feed_forward(x, _y)
+            maxIdx = np.argmax(value)
+            predictValue.append((i, self._unique_class[maxIdx], value[maxIdx]))
+            #(index, predictedValue, probability)
+        return(predictValue)
+
+    def accuracy(self, x_test, y_test):
+        predicts = self.predict(x_test, 0)
+        count = 0
+        for predict in predicts:
+            if(int(y_test.loc[predict[0], :]) == predict[1]):
+                count += 1
+        return count/len(predict)
+
 
 iris = datasets.load_iris()
 
 # bear with me for the next few steps... I'm trying to walk you through
-# how my data object landscape looks... i.e. how I get from raw data 
+# how my data object landscape looks... i.e. how I get from raw data
 # to matrices with the actual data I have, not the iris dataset
 # put feature matrix into columnar format in dataframe
-df = pd.DataFrame(data = iris.data)
+df = pd.DataFrame(data=iris.data)
 
 # add outcome variable
-df_class = pd.DataFrame(data = iris.target)
+df_class = pd.DataFrame(data=iris.target)
 
 # finally, split into train-test
-X_train, X_test, y_train, y_test = train_test_split(df, df_class, test_size = 0.2)
-
+X_train, X_test, y_train, y_test = train_test_split(
+    df, df_class, test_size=0.2)
 # print("iris target", y)
-mMLP = myMLP(hidden_layer_sizes=(5,3,), learning_rate=1e-5, max_iter=10, batch_size=5, err_threshold=2)
+# mMLp = neural_network.MLPClassifier(hidden_layer_sizes=(5, 3,), learning_rate=1e-5,
+#                                     max_iter=10, batch_size=5)
+mMLP = myMLP(hidden_layer_sizes=(5, 3,), learning_rate=1e-5,
+             max_iter=10, batch_size=5, err_threshold=2)
 mMLP = mMLP.fit(X_train, y_train)
+print(mMLP.accuracy(X_test, y_test))
