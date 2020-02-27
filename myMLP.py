@@ -9,7 +9,7 @@ import random
 
 
 class Layers(object):
-	def __init__(self, input_neuron=1, hidden_neurons=(10,), output_neuron=1, learning_rate=0.001):
+	def __init__(self, input_neuron=1, hidden_neurons=(10,), output_neuron=1, learning_rate=0.001, use_momentum=False):
 		super().__init__()
 		random.seed()	# default seed: current system time
 		self.num_layers 	= len(hidden_neurons) + 2
@@ -65,6 +65,10 @@ class Layers(object):
 				self.weights[i] 		= [[random.uniform(0.0, 0.1) for k in range(hidden_neurons[i-1])] for j in range(hidden_neurons[i])]
 
 		self.lrate = learning_rate
+		self.use_momentum = use_momentum
+
+	def set_momentum(self, momentum):
+		self.momentum = momentum
 
 	def print_layers(self):
 		print('biasses')
@@ -117,13 +121,21 @@ class Layers(object):
 				self.delta_biasses[layer][node] += self.lrate*self.delta_error[layer][node]*1
 				for k in range(len(self.weights[layer][node])):
 					self.delta_weight[layer][node][k] += self.lrate * self.delta_error[layer][node]*self.activation[layer][node]
+					
 
 	def update_weight(self):
 		for layer in reversed(range(self.num_layers - 1)):
 			for node in range(len(self.weights[layer])):
+				if self.use_momentum:
+					self.biasses[layer][node] += self.momentum * self.biasses[layer][node]
 				self.biasses[layer][node] += self.delta_biasses[layer][node]
 				for k in range(len(self.weights[layer][node])):
+					if self.use_momentum:
+						self.weights[layer][node][k] += self.momentum * self.weights[layer][node][k]
 					self.weights[layer][node][k] += self.delta_weight[layer][node][k]
+		if self.use_momentum:
+			self.momentum /= 2
+					
 	
 	def clear_delta_weight(self):
 		for layer in reversed(range(self.num_layers - 1)):
@@ -135,13 +147,15 @@ class Layers(object):
 
 
 class myMLP(object):
-	def __init__(self, hidden_layer_sizes=(10, 10,), batch_size=100, err_threshold=0.01, max_iter=200, learning_rate=0.001):
+	def __init__(self, hidden_layer_sizes=(10, 10,), batch_size=100, err_threshold=0.01, max_iter=200, learning_rate=0.001, use_momentum=False, momentum=0.9, early_stopping=True):
 		super().__init__()
 		self._hidden_layer_sizes = hidden_layer_sizes
 		self._batch_size = batch_size
 		self._err_threshold = err_threshold
 		self._max_iter = max_iter
 		self._lrate = learning_rate
+		self.use_momentum = use_momentum
+		self.momentum = momentum
 			
 	def _train(self, X, y):
 		self._mlp.clear_delta_weight()
@@ -182,7 +196,7 @@ class myMLP(object):
 		total_err_df = pd.DataFrame(data=error_hist)
 		ax = total_err_df.plot(kind='line')
 
-		# plt.show()
+		plt.show()
 
 		self._mlp.print_layers()
 
@@ -190,7 +204,9 @@ class myMLP(object):
 		self._feat_num = X.shape[1]
 		self._unique_class = np.unique(y)
 		self._target_class_num = len(self._unique_class)
-		self._mlp = Layers(hidden_neurons=self._hidden_layer_sizes, input_neuron=self._feat_num, output_neuron=self._target_class_num, learning_rate=self._lrate)
+		self._mlp = Layers(hidden_neurons=self._hidden_layer_sizes, input_neuron=self._feat_num, output_neuron=self._target_class_num, learning_rate=self._lrate, use_momentum=self.use_momentum)
+		if self.use_momentum:
+			self._mlp.set_momentum(self.momentum)
 		
 		try:
 			y = y[0].tolist()
@@ -232,14 +248,11 @@ iris = datasets.load_iris()
 df = pd.DataFrame(data=iris.data)
 df_norm = df.apply(lambda x: (x - x.min()) / (x.max() - x.min()))
 df_class = pd.DataFrame(data=iris.target)
-# print(df_class)
 
 # finally, split into train-test
 X_train, X_test, y_train, y_test = train_test_split(df_norm, df_class, test_size=0.2)
-# print("iris target", y)
-mMLP = myMLP(hidden_layer_sizes=(3,), learning_rate=0.1, max_iter=100, batch_size=10, err_threshold=0.1)
+mMLP = myMLP(hidden_layer_sizes=(3,3), learning_rate=0.001, max_iter=10, batch_size=10, err_threshold=0.1, use_momentum=True, early_stopping=False)
 mMLP = mMLP.fit(X_train, y_train)
-# print('y_test:', y_test)
 print('Accuracy:', mMLP.accuracy(X_test, y_test) * 100, '%')
 
 # Referensi hidden layer
@@ -256,11 +269,3 @@ print('Accuracy:', mMLP.accuracy(X_test, y_test) * 100, '%')
 # The number of hidden layer neurons are 2/3 (or 70% to 90%) of the size of the input layer.
 # The number of hidden layer neurons should be less than twice of the number of neurons in input layer.
 # The size of the hidden layer neurons is between the input layer size and the output layer size.
-
-# dataset di slide
-# df = pd.DataFrame()
-# df['x1'] = [0.1]
-# df['x2'] = [0.9]
-
-# df_class = pd.DataFrame()
-# df['output'] = 0.9
