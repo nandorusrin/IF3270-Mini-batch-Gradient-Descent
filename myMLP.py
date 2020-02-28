@@ -11,7 +11,7 @@ import random
 class Layers(object):
 	def __init__(self, input_neuron=1, hidden_neurons=(10,), output_neuron=1, learning_rate=0.001, use_momentum=False):
 		super().__init__()
-		random.seed()	# default seed: current system time
+		random.seed(135)	# default seed: current system time
 		self.num_layers 	= len(hidden_neurons) + 2
 		self.neurons_num 	= [input_neuron] + [hidden_neurons[i] for i in range(len(hidden_neurons))] + [output_neuron]
 		# index pertama: layer ke-berapa, index kedua: neuron ke-berapa, index ketiga: hubungan neuron tersebut dengan neuron di layer sebelumnya
@@ -73,11 +73,13 @@ class Layers(object):
 
 	def print_layers(self):
 		print('biasses')
-		for i in range(len(self.biasses)):
-			print(self.biasses[i])
+		print(self.biasses)
+		# for i in range(len(self.biasses)):
+		# 	print(self.biasses[i])
 		print('\nweights')
-		for i in range(len(self.weights)):
-	 		print(self.weights[i])
+		print(self.weights)
+		# for i in range(len(self.weights)):
+	 	# 	print(self.weights[i])
 		print()
 
 	# x: features, y: target
@@ -112,7 +114,7 @@ class Layers(object):
 				else: # hidden unit
 					self.delta_error[layer][node] 	= self.activation[layer][node]*(1 - self.activation[layer][node])*sum([(self.delta_error[layer + 1][m])*self.weights[layer + 1][m][node] for m in range(len(self.weights[layer + 1]))])
 
-	def update_delta_weight(self):
+	def update_delta_weight(self, x):
 		# Update BOBOT dimulai dari layer OUTPUT, baru ke depan
 		# Karena nilai yang digunakan node sekarang, merupakan ekstrak dari
 		# nilai node LAYER selanjutnya
@@ -121,7 +123,10 @@ class Layers(object):
 			for node in range(self.neurons_num[layer+1]):
 				self.delta_biasses[layer][node] += self.lrate*self.delta_error[layer][node]*1
 				for k in range(len(self.weights[layer][node])):
-					self.delta_weight[layer][node][k] += self.lrate * self.delta_error[layer][node]*self.activation[layer][node]
+					if layer == 0:
+						self.delta_weight[layer][node][k] += self.lrate * self.delta_error[layer][node]*x[k]
+					else:
+						self.delta_weight[layer][node][k] += self.lrate * self.delta_error[layer][node]*self.activation[layer-1][k]
 					
 
 	def update_weight(self):
@@ -162,8 +167,10 @@ class myMLP(object):
 		self._mlp.clear_delta_weight()
 		total_err = 0.0
 		error_hist = []
+		accuracy_hist = []
 		done = False
 		len_X = len(X)
+		counter_benar = 0
 
 		# self.target_map = [0.0, 0.5, 1.0]	# hardcoded
 		self.target_map = [0.0]
@@ -180,13 +187,19 @@ class myMLP(object):
 				target_output = [self.target_map[y[i]]]
 				
 				total_err += 0.5*sum([((out[out_idx] - target_output[out_idx])**2) for out_idx in range(len(out))])
+				
+				mapped_value = [abs(out[0]-target_output[0]) for target in self.target_map]
+				minIdx = np.argmin(mapped_value)
+				counter_benar += 1 if (self._unique_class[minIdx]) == target_output[0] else 0
 
 				self._mlp.backward(out, target_output)
-				self._mlp.update_delta_weight()
+				self._mlp.update_delta_weight(row)
 				counter += 1
 				
 				if (counter == self._batch_size) or (i == len_X-1):
-					error_hist.append(total_err / len_X)
+					error_hist.append(total_err / counter)
+					accuracy_hist.append(mMLP.accuracy(self.X_test, self.y_test) * 100)
+					counter_benar = 0
 					# print('WEIGHT UPDATED', total_err)
 					self._mlp.update_weight()
 					self._mlp.clear_delta_weight()
@@ -201,14 +214,19 @@ class myMLP(object):
 				break
 
 		print('Last total err:', total_err)
-		total_err_df = pd.DataFrame(data=error_hist)
-		ax = total_err_df.plot(kind='line')
+		# total_err_df = pd.DataFrame(data=error_hist)
+		# ax = total_err_df.plot(kind='line')
 
-		# plt.show()
+		# accuracy over time
+		accuracy_df = pd.DataFrame(data=accuracy_hist)
+		ax = accuracy_df.plot(kind='line')
+		ax.set_title('Accuracy over time')
+		
+		plt.show()
 
 		# self._mlp.print_layers()
 
-	def fit(self, X, y):
+	def fit(self, X, y, X_test, y_test):
 		self._feat_num = X.shape[1]
 		self._unique_class = np.unique(y)
 		self._target_class_num = len(self._unique_class)
@@ -216,6 +234,11 @@ class myMLP(object):
 		if self.use_momentum:
 			self._mlp.set_momentum(self.momentum)
 		
+		self.X = X
+		self.y = y
+		self.X_test = X_test
+		self.y_test = y_test
+
 		try:
 			y = y[0].tolist()
 		except:
@@ -241,13 +264,40 @@ class myMLP(object):
 			pass
 
 		predicts = self.predict(x_test)
-		# print(predicts)
 		len_data = len(predicts)
 		count = 0
 		for p_idx in range(len_data):
 			if (predicts[p_idx] == y_test[p_idx]):
 				count += 1
 		return count/float(len_data)
+
+
+# ML Slide
+
+# clf = myMLP(hidden_layer_sizes=(2,), learning_rate=0.25, err_threshold=0.0001)
+# # self.weights = [[] for i in range(len(hidden_neurons) + 1)]
+
+# # index pertama: layer ke-berapa, index kedua: neuron ke-berapa
+# # self.biasses = [[] for i in range(len(hidden_neurons) + 1)]
+# X = pd.DataFrame(data=[[0.1, 0.9]])
+# clf = clf.fit(X, [0.9])
+# clf._mlp.biasses = [[0.1, 0.1], [0.2]]
+# clf._mlp.weights = [[[-0.2, 0.1], [-0.1, 0.3]], [[0.2, 0.3]]]
+
+# out_forward = clf._mlp.feed_forward([0.1, 0.9])
+# print(out_forward)
+# clf._mlp.print_layers()
+# print(clf._mlp.net)
+# print(clf._mlp.activation)
+# print('err:', 0.5*((0.9-clf._mlp.activation[-1][-1])**2))
+
+# clf._mlp.backward(out_forward, [0.9])
+# clf._mlp.update_delta_weight([0.1, 0.9])
+# # clf._mlp.
+
+# print('deltabias', clf._mlp.delta_biasses, '\n')
+# print('deltaerror', clf._mlp.delta_error, '\n')
+# print('delta-weight', clf._mlp.delta_weight, '\n')
 
 
 # IRIS dataset
@@ -258,10 +308,11 @@ df_norm = df.apply(lambda x: (x - x.min()) / (x.max() - x.min()))
 df_class = pd.DataFrame(data=iris.target)
 
 # finally, split into train-test
-X_train, X_test, y_train, y_test = train_test_split(df_norm, df_class, test_size=0.2)
-mMLP = myMLP(hidden_layer_sizes=(3,3), learning_rate=3, max_iter=100, batch_size=10, err_threshold=0.1, use_momentum=False, early_stopping=False)
-mMLP = mMLP.fit(X_train, y_train)
-print('Accuracy:', mMLP.accuracy(X_test, y_test) * 100, '%')
+X_train, X_test, y_train, y_test = train_test_split(df_norm, df_class, test_size=0.2, random_state=1)
+mMLP = myMLP(hidden_layer_sizes=(3,2), learning_rate=0.5, max_iter=1000, batch_size=10, err_threshold=0.1, use_momentum=False, early_stopping=False)
+mMLP = mMLP.fit(X_train, y_train, X_test, y_test)
+print('Accuracy Train:', mMLP.accuracy(X_train, y_train) * 100, '%')
+print('Accuracy Test:', mMLP.accuracy(X_test, y_test) * 100, '%')
 
 # use sklearn
 # sklearnMLP = neural_network.MLPClassifier(hidden_layer_sizes=(3,3), batch_size=10, learning_rate_init=0.001, max_iter=600, momentum=True, early_stopping=False, verbose=False)
@@ -286,4 +337,6 @@ print('Accuracy:', mMLP.accuracy(X_test, y_test) * 100, '%')
 
 # The number of hidden layer neurons are 2/3 (or 70% to 90%) of the size of the input layer.
 # The number of hidden layer neurons should be less than twice of the number of neurons in input layer.
-# The size of the hidden layer neurons is between the input layer size and the output layer size.
+# The size of the hidden layprint_layerser neurons is between the input layer size and the output layer size.
+
+
