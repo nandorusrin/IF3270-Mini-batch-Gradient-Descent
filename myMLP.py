@@ -214,17 +214,17 @@ class myMLP(object):
 				break
 
 		print('Last total err:', total_err)
-		# total_err_df = pd.DataFrame(data=error_hist)
-		# ax = total_err_df.plot(kind='line')
+		total_err_df = pd.DataFrame(data=error_hist)
+		ax = total_err_df.plot(kind='line')
 
 		# accuracy over time
-		accuracy_df = pd.DataFrame(data=accuracy_hist)
-		ax = accuracy_df.plot(kind='line')
-		ax.set_title('Accuracy over time')
+		# accuracy_df = pd.DataFrame(data=accuracy_hist)
+		# ax = accuracy_df.plot(kind='line')
+		ax.set_title('loss function')
 		
 		plt.show()
 
-		# self._mlp.print_layers()
+		self._mlp.print_layers()
 
 	def fit(self, X, y, X_test, y_test):
 		self._feat_num = X.shape[1]
@@ -315,12 +315,12 @@ print('Accuracy Train:', mMLP.accuracy(X_train, y_train) * 100, '%')
 print('Accuracy Test:', mMLP.accuracy(X_test, y_test) * 100, '%')
 
 # use sklearn
-# sklearnMLP = neural_network.MLPClassifier(hidden_layer_sizes=(3,3), batch_size=10, learning_rate_init=0.001, max_iter=600, momentum=True, early_stopping=False, verbose=False)
-# sklearnMLP = sklearnMLP.fit(X_train, y_train)
-# print(sklearnMLP.predict(X_test))
-# print('Sklearn Accuracy:', sklearnMLP.score(X_test, y_test) * 100, '%')
-# loss_curve_df = pd.DataFrame(data=sklearnMLP.loss_curve_)
-# ax = loss_curve_df.plot(kind='line')
+sklearnMLP = neural_network.MLPClassifier(hidden_layer_sizes=(3,3), batch_size=10, learning_rate_init=0.001, max_iter=1000, momentum=True, early_stopping=False, verbose=False)
+sklearnMLP = sklearnMLP.fit(X_train, y_train)
+print(sklearnMLP.predict(X_test))
+print('Sklearn Accuracy:', sklearnMLP.score(X_test, y_test) * 100, '%')
+loss_curve_df = pd.DataFrame(data=sklearnMLP.loss_curve_)
+ax = loss_curve_df.plot(kind='line')
 
 # plt.show()
 
