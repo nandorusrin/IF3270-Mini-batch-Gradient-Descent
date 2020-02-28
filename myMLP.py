@@ -66,6 +66,7 @@ class Layers(object):
 
 		self.lrate = learning_rate
 		self.use_momentum = use_momentum
+		self.momentum = 0.9
 
 	def set_momentum(self, momentum):
 		self.momentum = momentum
@@ -86,7 +87,7 @@ class Layers(object):
 			# iterasi node dalam satu LAYER
 			for node in range(self.neurons_num[layer + 1]):
 				# Inisialisasi value NET dengan bias
-				self.net[layer][node] = float(self.biasses[layer][node])
+				self.net[layer][node] = self.biasses[layer][node]
 
 				# Iterasi semua node sebelumnya untuk dapat value compute ke node sekarang
 				for k in range(self.neurons_num[layer]):
@@ -105,7 +106,7 @@ class Layers(object):
 	# Backward phase
 	def backward(self, out_val, target_probs):
 		for layer in reversed(range(self.num_layers - 1)):
-			for node in range(len(self.weights[layer])):
+			for node in range(self.neurons_num[layer+1]):
 				if (layer == (self.num_layers - 2)):  # output unit
 					self.delta_error[layer][node] 	= self.activation[layer][node]*(1 - self.activation[layer][node])*(target_probs[node] - out_val[node])
 				else: # hidden unit
@@ -117,7 +118,7 @@ class Layers(object):
 		# nilai node LAYER selanjutnya
 
 		for layer in reversed(range(self.num_layers - 1)):
-			for node in range(len(self.weights[layer])):
+			for node in range(self.neurons_num[layer+1]):
 				self.delta_biasses[layer][node] += self.lrate*self.delta_error[layer][node]*1
 				for k in range(len(self.weights[layer][node])):
 					self.delta_weight[layer][node][k] += self.lrate * self.delta_error[layer][node]*self.activation[layer][node]
@@ -163,6 +164,12 @@ class myMLP(object):
 		error_hist = []
 		done = False
 		len_X = len(X)
+
+		# self.target_map = [0.0, 0.5, 1.0]	# hardcoded
+		self.target_map = [0.0]
+		for i in range(len(self._unique_class-2)):
+			self.target_map.append(self.target_map[i] + 1.0/(len(self._unique_class)-1))
+		self.target_map.append(1.0)
 		for iter_counter in range(self._max_iter):
 			i = counter = 0
 			for index, row in X.iterrows():
@@ -170,15 +177,16 @@ class myMLP(object):
 				# feed forward
 				out = self._mlp.feed_forward(row)
 				
-				target_probs = [1 if klas == y[i] else 0 for klas in self._unique_class]
-				total_err += 0.5*sum([((out[out_idx] - target_probs[out_idx])**2) for out_idx in range(len(out))])
+				target_output = [self.target_map[y[i]]]
+				
+				total_err += 0.5*sum([((out[out_idx] - target_output[out_idx])**2) for out_idx in range(len(out))])
 
-				self._mlp.backward(out, target_probs)
+				self._mlp.backward(out, target_output)
 				self._mlp.update_delta_weight()
 				counter += 1
 				
 				if (counter == self._batch_size) or (i == len_X-1):
-					error_hist.append(total_err)
+					error_hist.append(total_err / len_X)
 					# print('WEIGHT UPDATED', total_err)
 					self._mlp.update_weight()
 					self._mlp.clear_delta_weight()
@@ -196,15 +204,15 @@ class myMLP(object):
 		total_err_df = pd.DataFrame(data=error_hist)
 		ax = total_err_df.plot(kind='line')
 
-		plt.show()
+		# plt.show()
 
-		self._mlp.print_layers()
+		# self._mlp.print_layers()
 
 	def fit(self, X, y):
 		self._feat_num = X.shape[1]
 		self._unique_class = np.unique(y)
 		self._target_class_num = len(self._unique_class)
-		self._mlp = Layers(hidden_neurons=self._hidden_layer_sizes, input_neuron=self._feat_num, output_neuron=self._target_class_num, learning_rate=self._lrate, use_momentum=self.use_momentum)
+		self._mlp = Layers(hidden_neurons=self._hidden_layer_sizes, input_neuron=self._feat_num, output_neuron=1, learning_rate=self._lrate, use_momentum=self.use_momentum)
 		if self.use_momentum:
 			self._mlp.set_momentum(self.momentum)
 		
@@ -220,9 +228,9 @@ class myMLP(object):
 		predict_value = []
 		for i, x in X_test.iterrows():
 			value = self._mlp.feed_forward(x)
-			# print(value)
-			maxIdx = np.argmax(value)
-			predict_value.append(self._unique_class[maxIdx])
+			mapped_value = [abs(value[0]-target) for target in self.target_map]
+			minIdx = np.argmin(mapped_value)
+			predict_value.append(self._unique_class[minIdx])
 			#(index, predictedValue, probability)
 		return(predict_value)
 
@@ -233,7 +241,7 @@ class myMLP(object):
 			pass
 
 		predicts = self.predict(x_test)
-		print(predicts)
+		# print(predicts)
 		len_data = len(predicts)
 		count = 0
 		for p_idx in range(len_data):
@@ -251,9 +259,19 @@ df_class = pd.DataFrame(data=iris.target)
 
 # finally, split into train-test
 X_train, X_test, y_train, y_test = train_test_split(df_norm, df_class, test_size=0.2)
-mMLP = myMLP(hidden_layer_sizes=(3,3), learning_rate=0.001, max_iter=10, batch_size=10, err_threshold=0.1, use_momentum=True, early_stopping=False)
+mMLP = myMLP(hidden_layer_sizes=(3,3), learning_rate=3, max_iter=100, batch_size=10, err_threshold=0.1, use_momentum=False, early_stopping=False)
 mMLP = mMLP.fit(X_train, y_train)
 print('Accuracy:', mMLP.accuracy(X_test, y_test) * 100, '%')
+
+# use sklearn
+# sklearnMLP = neural_network.MLPClassifier(hidden_layer_sizes=(3,3), batch_size=10, learning_rate_init=0.001, max_iter=600, momentum=True, early_stopping=False, verbose=False)
+# sklearnMLP = sklearnMLP.fit(X_train, y_train)
+# print(sklearnMLP.predict(X_test))
+# print('Sklearn Accuracy:', sklearnMLP.score(X_test, y_test) * 100, '%')
+# loss_curve_df = pd.DataFrame(data=sklearnMLP.loss_curve_)
+# ax = loss_curve_df.plot(kind='line')
+
+# plt.show()
 
 # Referensi hidden layer
 # The architecture and the units of the input, hidden and output layers in sklearn are decribed as below:
